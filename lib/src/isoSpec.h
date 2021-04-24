@@ -1,4 +1,6 @@
 #include <unistd.h>
+#include <string.h>
+#include <stdio.h>
 
 #define off_t long int
 #define ino_t unsigned long int
@@ -88,6 +90,3 @@ typedef struct VolInfo
     char dataPreparer[129];
 
 } VolInfo;
-
-int open_image_file(VolInfo *volInfo, const char *filename);
-int read_volume(VolInfo *volInfo);
