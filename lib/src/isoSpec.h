@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 #define off_t long int
 #define ino_t unsigned long int
@@ -36,9 +38,7 @@
 **/
 typedef struct FileBase
 {
-    char original9660name[15];
     char name[NCHARS_FILE_ID_MAX_STORE]; /* '\0' terminated */
-    unsigned posixFileMode;              /* file type and permissions */
     struct FileBase *next;
 
 } FileBase;
@@ -75,9 +75,10 @@ typedef struct Dir
 typedef struct VolInfo
 {
     unsigned filenameTypes;
-    off_t pRootDrOffset; /* primary (9660) */
+    off_t pRootDrOffset; /* primary VD (for 9660). secondary VD not needed for iso 9660*/
     off_t bootRecordSectorNumberOffset;
     int imageForReading;
+    bool rootRead;
     const File *bootRecordOnImage; /* pointer to the file in the directory tree */
     long int creationTime;
     Dir dirTree;
