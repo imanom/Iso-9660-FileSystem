@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+
 #define off_t long int
 #define ino_t unsigned long int
 
@@ -24,13 +25,6 @@
 
 #define FNTYPE_9660 1
 
-/* options for VolInfo.bootMediaType */
-#define BOOT_MEDIA_NONE 0
-#define BOOT_MEDIA_NO_EMULATION 1
-#define BOOT_MEDIA_1_2_FLOPPY 2  /* 1.2 meg diskette */
-#define BOOT_MEDIA_1_44_FLOPPY 3 /* 1.44 meg diskette  */
-#define BOOT_MEDIA_2_88_FLOPPY 4 /* 2.88 meg diskette  */
-#define BOOT_MEDIA_HARD_DISK 5
 
 /**
 * FileBase
@@ -76,16 +70,10 @@ typedef struct VolInfo
 {
     unsigned filenameTypes;
     off_t pRootDrOffset; /* primary VD (for 9660). secondary VD not needed for iso 9660*/
-    off_t bootRecordSectorNumberOffset;
     int imageForReading;
     bool rootRead;
-    const File *bootRecordOnImage; /* pointer to the file in the directory tree */
     long int creationTime;
     Dir dirTree;
-    unsigned char bootMediaType;
-    unsigned bootRecordSize;     /* in bytes */
-    off_t bootRecordOffset;      /* if on image */
-    char *bootRecordPathAndName; /* if on filesystem */
     char volId[33];
     char publisher[129];
     char dataPreparer[129];
