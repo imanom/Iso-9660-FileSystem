@@ -3,7 +3,7 @@ OBJECTS = ./lib/src/helper.o ./lib/src/isoMethods.o
 CC = gcc
 CFLAGS  += -Wall -g -DDEBUG -pedantic -std=gnu99 -Wundef -Wcast-align -W -Wpointer-arith -Wwrite-strings -Wno-unused-parameter
 
-./default: main
+#default: main
 isoSpec.a: $(OBJECTS)
 	@echo 'Creating isoSpec.a'
 	@$(AR) -cr isoSpec.a $(OBJECTS)
