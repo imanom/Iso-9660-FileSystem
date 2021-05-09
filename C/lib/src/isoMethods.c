@@ -111,7 +111,7 @@ int read_directory(VolInfo *volInfo, Dir *dir, int filename_type)
         printf("error reading length of extent\n");
         return 0;
     }
-    printf("len of record:%ld\n", record_length);
+    printf("\nlen of record:%ld\n", record_length);
     printf("loc:%ld\n", loc_extent);
     printf("len:%ld\n", len_extent);
     readSeekSet(volInfo, 14, SEEK_CUR);
@@ -137,7 +137,8 @@ int read_directory(VolInfo *volInfo, Dir *dir, int filename_type)
             return 0;
         }
         ((FileBase *)(dir))->name[len_file_id] = '\0';
-        printf("len of file id: %d\n", len_file_id);
+        printf("\nIt's a directory!\n");
+        //printf("\nlen of file id: %d\n", len_file_id);
         printf("dir name: %s\n\n", ((FileBase *)(dir))->name);
         if (len_file_id % 2 == 0)
             readSeekSet(volInfo, 1, SEEK_CUR);
@@ -296,6 +297,7 @@ int read_file(VolInfo *volInfo, File *file, int filename_type)
         return 0;
     }
     name[len_file_id] = '\0';
+    printf("It's a file!\n");
     printf("file name:%s\n", name);
     printf("record length: %d\n", record_length);
     printf("file loc: %d\n", loc_extent);
@@ -323,15 +325,17 @@ int read_file(VolInfo *volInfo, File *file, int filename_type)
 
 void check_kernel_file(unsigned int size, off_t loc_extent)
 {
-    printf("\nsize of kernel file: %d bytes\n", size);
+    printf("\nInside check_kernel_file function!\n", size);
+    printf("size of kernel file: %d bytes\n", size);
     ssize_t s = 1;
     char buff[(size) + 1];
-    char file_name[] = {"/home/monami/Downloads/ISO9660_project/boot.iso"};
+    char file_name[] = {"/home/monami/Downloads/ISO9660_project/C/boot.iso"};
     int fd;
     int nbyte = sizeof(buff);
     fd = open(file_name, O_RDONLY, 0444);
     printf("fd: %d\n", fd);
     s = pread(fd, &buff, size, loc_extent);
-    printf("\nReading kernel file from boot.iso\n");
+    printf("Reading kernel file from boot.iso\n");
     printf("size of file: %d\n", s);
+    printf("Exit check_kernel_file function!\n\n", size);
 }

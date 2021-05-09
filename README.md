@@ -1,6 +1,6 @@
 # ISO 9660 File System
 
-Explores ISO 9660 file systems and loads the kernel file into memory using low-level Block I/O operations which reads 2KB raw blocks.
+Explores ISO 9660 file systems and loads the kernel file into memory using low-level Block I/O operations which reads 2KB raw blocks. Block I/O provides a low level implementation to read a file regardless of the file system type. 
 
 ## C 
 This folder includes an implementation in C to traverse through an ISO file (ISO 9660 File Systems) and prints out relevant information such as file names and sizes. Can be extended to print other information.
@@ -8,9 +8,10 @@ This folder includes an implementation in C to traverse through an ISO file (ISO
 ### How to run?
 - Path to the iso file has to be provided in `main.c` and `isoMethods.c` in the function `check_kernel_file()`.
 - Navigate to base folder and run `make`.
+- Then run `./main` to execute the program.
 
 ## UEFI
-This folder includes an implementation to perform higher-level operations (reading a file) using the low-level block I/O operations in UEFI. Reads the ISO file, and loads the kernel into memory.
+This folder includes an implementation to perform higher-level operations (reading a file) using the low-level block I/O operations in UEFI. This code reads the ISO file (ISO 9660 file system), and loads the kernel into memory. 
 
 ### Tools:
 - build-essential, clang, lld, mkisofs, virtualbox. (install with `sudo apt install`)
@@ -18,7 +19,7 @@ This folder includes an implementation to perform higher-level operations (readi
 - VirtualBox
 
 ### How to run?
-- Navigate to `Code` folder and run make.sh which creates `boot.iso`.
+- Navigate to `UEFI/Code` folder and run make.sh which creates `boot.iso`.
 - Load the `boot.iso` into a virtual machine in VirtualBox with UEFI enabled.
 
 

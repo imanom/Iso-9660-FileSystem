@@ -5,32 +5,19 @@
 
 #include <Uefi.h>
 #include <Protocol/LoadedImage.h>
-#include <Protocol/SimpleFileSystem.h>
 #include <Protocol/GraphicsOutput.h>
-#include <Guid/FileInfo.h>
 #include <Protocol/BlockIo.h>
+#include <isoMethods.h>
 
 /* Use GUID names 'gEfi...' that are already declared in Protocol headers. */
 EFI_GUID gEfiLoadedImageProtocolGuid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
-EFI_GUID gEfiSimpleFileSystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
 EFI_GUID gEfiGraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
-EFI_GUID gEfiFileInfoGuid = EFI_FILE_INFO_ID;
 EFI_GUID gEfiBlockIoProtocolGuid = EFI_BLOCK_IO_PROTOCOL_GUID;
 
 /* Keep these variables global. */
 static EFI_HANDLE ImageHandle;
 static EFI_SYSTEM_TABLE *SystemTable;
 static EFI_BOOT_SERVICES *BootServices;
-
-static VOID *AllocatePool(UINTN size, EFI_MEMORY_TYPE type)
-{
-	VOID *ptr;
-
-	EFI_STATUS ret = BootServices->AllocatePool(type, size, &ptr);
-	if (EFI_ERROR(ret))
-		return NULL;
-	return ptr;
-}
 
 static VOID *AllocatePages(UINTN pages, EFI_MEMORY_TYPE type)
 {
@@ -41,78 +28,6 @@ static VOID *AllocatePages(UINTN pages, EFI_MEMORY_TYPE type)
 		return NULL;
 
 	return (VOID *)ptr;
-}
-
-static VOID FreePool(VOID *buf)
-{
-	BootServices->FreePool(buf);
-}
-
-static EFI_STATUS OpenFile(EFI_FILE_PROTOCOL **pvh, EFI_FILE_PROTOCOL **pfh, UINTN num)
-{
-	EFI_LOADED_IMAGE *li = NULL;
-	EFI_FILE_IO_INTERFACE *fio = NULL;
-	EFI_FILE_PROTOCOL *vh;
-	EFI_STATUS efi_status;
-
-	*pvh = NULL;
-	*pfh = NULL;
-
-	efi_status = BootServices->HandleProtocol(ImageHandle,
-											  &gEfiLoadedImageProtocolGuid, (void **)&li);
-	if (EFI_ERROR(efi_status))
-	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut,
-										  L"Cannot get LoadedImage for BOOTx64.EFI\r\n");
-		BootServices->Stall(5 * 1000000);
-		return efi_status;
-	}
-
-	efi_status = BootServices->HandleProtocol(li->DeviceHandle,
-											  &gEfiSimpleFileSystemProtocolGuid, (void **)&fio);
-	if (EFI_ERROR(efi_status))
-	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut,
-										  L"Cannot get fio\r\n");
-		BootServices->Stall(5 * 1000000);
-		return efi_status;
-	}
-
-	efi_status = fio->OpenVolume(fio, pvh);
-	if (EFI_ERROR(efi_status))
-	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut,
-										  L"Cannot get the volume handle!\r\n");
-		BootServices->Stall(5 * 1000000);
-		return efi_status;
-	}
-	vh = *pvh;
-	if (num == 0)
-	{ // read kernel file
-		efi_status = vh->Open(vh, pfh, L"\\EFI\\BOOT\\KERNEL",
-							  EFI_FILE_MODE_READ, 0);
-	}
-	else if (num == 1)
-	{ //read user file
-		efi_status = vh->Open(vh, pfh, L"\\EFI\\BOOT\\USER",
-							  EFI_FILE_MODE_READ, 0);
-	}
-
-	if (EFI_ERROR(efi_status))
-	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut,
-										  L"Cannot get the file handle!\r\n");
-		BootServices->Stall(5 * 1000000);
-		return efi_status;
-	}
-
-	return EFI_SUCCESS;
-}
-
-static void CloseFile(EFI_FILE_PROTOCOL *vh, EFI_FILE_PROTOCOL *fh)
-{
-	vh->Close(vh);
-	fh->Close(fh);
 }
 
 static UINT32 *SetGraphicsMode(UINT32 width, UINT32 height)
@@ -182,54 +97,6 @@ static UINT32 *SetGraphicsMode(UINT32 width, UINT32 height)
 	return NULL;
 }
 
-static VOID *LoadFile(EFI_FILE_PROTOCOL *fh, UINTN *size)
-{
-
-	EFI_STATUS efi_status;
-	EFI_FILE_INFO *file_info = NULL;
-	VOID *buffer = NULL;
-
-	//Read the file info size.
-	efi_status = fh->GetInfo(fh, &gEfiFileInfoGuid, size, NULL);
-	if (efi_status == EFI_BUFFER_TOO_SMALL)
-	{
-		file_info = AllocatePool(*size, EfiBootServicesData);
-	}
-	else
-	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut,
-										  L"Cannot get file size.\r\n");
-		BootServices->Stall(5 * 1000000);
-	}
-
-	efi_status = fh->GetInfo(fh, &gEfiFileInfoGuid, size, file_info);
-	if (EFI_ERROR(efi_status))
-	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut,
-										  L"Cannot get the file info.\r\n");
-		BootServices->Stall(5 * 1000000);
-	}
-	else
-	{
-		*size = file_info->FileSize;
-	}
-	FreePool(file_info);
-
-	//Now that we have the actual file size, convert it to pages and allocate a buffer using AllocatePages()
-	UINTN pages = EFI_SIZE_TO_PAGES(*size);
-	buffer = AllocatePages(pages, EfiLoaderCode);
-
-	//Read the file
-	efi_status = fh->Read(fh, size, buffer);
-	if (EFI_ERROR(efi_status))
-	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut,
-										  L"Error while reading file.\r\n");
-		BootServices->Stall(5 * 1000000); // 5 seconds
-	}
-	return buffer;
-}
-
 static VOID setExitBootServices()
 {
 	EFI_STATUS efi_status;
@@ -270,39 +137,18 @@ static VOID setExitBootServices()
 	}
 }
 
-void readFromCharArray(unsigned char *array, unsigned *value)
-{
-	*value = array[3];
-	*value <<= 8;
-	*value |= array[2];
-	*value <<= 8;
-	*value |= array[1];
-	*value <<= 8;
-	*value |= array[0];
-}
-
-int isDirOrFile(char *volInfo)
-{
-	unsigned char file_flags = volInfo[0];
-
-	if ((file_flags & 2) == 2)
-		return 2;
-	else
-		return 1;
-}
-
 static VOID *handleBlockIO()
 {
+	EFI_BLOCK_IO *bio;
 	EFI_HANDLE *handles = NULL;
 	UINTN handleSize = 0;
 	EFI_STATUS efi_status;
 	UINTN num = 1024;
-	EFI_BLOCK_IO *bio;
-	VOID *buffer2 = NULL;
+	VolInfo vol;
+
+	VOID *buffer = NULL;
 	int flag;
-	unsigned char *array_loc;
-	unsigned char *array_len;
-	unsigned record_length;
+	unsigned char *array_loc, *array_len;
 	unsigned loc = 0, len = 0;
 
 	do
@@ -321,67 +167,81 @@ static VOID *handleBlockIO()
 		if (bio && bio->Media && !bio->Media->LogicalPartition && bio->Media->MediaPresent)
 		{
 			UINTN pages = EFI_SIZE_TO_PAGES(bio->Media->BlockSize);
-			VOID *buffer = AllocatePages(pages, EfiBootServicesData);
-			efi_status = bio->ReadBlocks(bio, bio->Media->MediaId, (EFI_LBA)16, bio->Media->BlockSize, buffer);
+			buffer = AllocatePages(pages, EfiBootServicesData);
+
+			//Skip the system area (first 16 blocks) and locate the PVD
+			efi_status = bio->ReadBlocks(bio, bio->Media->MediaId, (EFI_LBA)NLS_SYSTEM_AREA, bio->Media->BlockSize, buffer);
 			if (!EFI_ERROR(efi_status))
 			{
-				array_loc = (buffer + 156 + 2);
-				array_len = (buffer + 156 + 10);
+				vol.vol_descriptor_type = ((char *)(buffer))[0]; //read 1st byte
+				if (vol.vol_descriptor_type == VDTYPE_PRIMARY)	 //check if we are in PVD
+				{
+					vol.pRootDrOffset = buffer + root_dir_offset; //locate root directory in PVDs
+					array_loc = vol.pRootDrOffset + loc_offset;	  //read LBA address of first directory
+					array_len = vol.pRootDrOffset + len_offset;	  //read size of extent of first directory
 
-				readFromCharArray(array_loc, &loc);
-				readFromCharArray(array_len, &len);
+					convertBothEndian(array_loc, &loc);
+					convertBothEndian(array_len, &len);
+				}
+				else
+					break;
 			}
 
-			do	
+			//Now that we have the root directory located, iterate through the directories till you reach the first file
+			do
 			{
 
 				pages = EFI_SIZE_TO_PAGES(len);
+				buffer = AllocatePages(pages, EfiBootServicesData);
 
-				buffer2 = AllocatePages(pages, EfiBootServicesData);
-
-				efi_status = bio->ReadBlocks(bio, bio->Media->MediaId, (EFI_LBA)(loc), len, buffer2);
+				efi_status = bio->ReadBlocks(bio, bio->Media->MediaId, (EFI_LBA)(loc), len, buffer);
 				if (!EFI_ERROR(efi_status))
 				{
-					array_loc = (buffer2 + 68 + 2);
-					array_len = (buffer2 + 68 + 10);
+					vol.Dir = buffer + skip_dirs;
+					array_loc = vol.Dir + loc_offset; //LBA address of child Dir/File record
+					array_len = vol.Dir + len_offset; //size of extent of child Dir/File record
 
-					readFromCharArray(array_loc, &loc);
-					readFromCharArray(array_len, &len);
+					convertBothEndian(array_loc, &loc);
+					convertBothEndian(array_len, &len);
 
-					record_length = ((char *)(buffer2 + 68))[0];
+					vol.recordLength = ((char *)vol.Dir)[0]; //length of current Dir/File record
 				}
-				flag = isDirOrFile((char *)(buffer2 + 68 + 25));
+				flag = isDirOrFile((char *)(vol.Dir + flag_offset));
 
-			} while (flag == 2); //iterate through the directories
+			} while (flag == 2); //iterate through the directories (2=Dir, 1=File)
 
-			if (flag == 1)	//file
+			//Found the first file!
+			if (flag == 1)
 			{
-				//record_len stores the size of the first file ie. "BOOTX64.EFI;1" 
-				//Add this size, and the next sector will contain the kernel file.
+				//recordLength stores the size of the first file ie. "BOOTX64.EFI;1" (as seen from the results in C implementation)
+				//Add the record size of this file, and the next sector should contain the kernel file.
+				vol.kernel = vol.Dir + vol.recordLength;
 
-				array_loc = (buffer2 + record_length + 68 + 2); 	//Kernel's LBA address
-				array_len = (buffer2 + record_length + 68 + 10);	//Kernel size 
+				array_loc = (vol.kernel + loc_offset); //Kernel's LBA address
+				array_len = (vol.kernel + len_offset); //Kernel size
 
-				readFromCharArray(array_loc, &loc);
-				readFromCharArray(array_len, &len);
-				buffer2 = NULL;
+				convertBothEndian(array_loc, &loc);
+				convertBothEndian(array_len, &len);
 
-				len += (len % 2048);	//since buffer size should be a multiple of device size (ie. 2048 bytes)
+				//since buffer size should be a multiple of device size (ie. 2048 bytes) 
+				//Checked the kernel file size from C implementation; approx 7616 bytes
+				len = 2048 * 4; 
+
 				pages = EFI_SIZE_TO_PAGES(len);
-				buffer2 = AllocatePages(pages, EfiLoaderCode);
+				buffer = AllocatePages(pages, EfiLoaderCode);
 
-				efi_status = bio->ReadBlocks(bio, bio->Media->MediaId, (EFI_LBA)(loc), len, buffer2);
+				efi_status = bio->ReadBlocks(bio, bio->Media->MediaId, (EFI_LBA)(loc), len, buffer);
 				if (!EFI_ERROR(efi_status))
 				{
 					SystemTable->ConOut->OutputString(SystemTable->ConOut,
 													  L"Success! \r\n");
-					BootServices->Stall(1 * 1000000); // 5 seconds
+					BootServices->Stall(1 * 1000000);
 				}
 				else
 				{
 					SystemTable->ConOut->OutputString(SystemTable->ConOut,
 													  L"Error! \r\n");
-					BootServices->Stall(5 * 1000000); // 5 seconds
+					BootServices->Stall(5 * 1000000);
 				}
 			}
 
@@ -389,7 +249,7 @@ static VOID *handleBlockIO()
 		}
 	}
 
-	return buffer2;
+	return buffer;
 }
 
 /* Use System V ABI rather than EFI/Microsoft ABI. */
@@ -399,76 +259,21 @@ EFI_STATUS EFIAPI
 efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 {
 
-	EFI_FILE_PROTOCOL *vh, *fh, *vh2, *fh2;
-	EFI_STATUS efi_status;
 	UINT32 *fb;
 
 	ImageHandle = imageHandle;
 	SystemTable = systemTable;
 	BootServices = systemTable->BootServices;
 
-	/*
-
-Read Kernel File
-
-*/
-
-	// Get the volume handle and file handle of the kernel file
-	efi_status = OpenFile(&vh, &fh, 0);
-	if (EFI_ERROR(efi_status))
-	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut,
-										  L"Error getting file and volume handles of kernel file!\r\n");
-		BootServices->Stall(5 * 1000000); // 5 seconds
-		return efi_status;
-	}
-
-	// Load the kernel using the file handle
-	UINTN kernel_size = 0;
-	//VOID *kernel_buffer = LoadFile(fh, &kernel_size);
-
-	//Close the volume and file handles
-	CloseFile(vh, fh);
-
-	/*
-
-Read User File
-
-*/
-
 	//Allocate pages 2054 + 1 page (for kernel stack)
 	VOID *kernel_addr = AllocatePages(2055, EfiLoaderData);
 	kernel_addr += 0x1000;
 
-	// Get the volume handle and file handle of the user app
-	efi_status = OpenFile(&vh2, &fh2, 1);
-	if (EFI_ERROR(efi_status))
-	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut,
-										  L"Error getting file and volume handles of user app!\r\n");
-		BootServices->Stall(5 * 1000000); // 5 seconds
-		return efi_status;
-	}
-
-	//Close the volume and file handles
-	CloseFile(vh2, fh2);
-
-	/*
-
-	Frame Buffer
-
-	*/
-
 	//Get the frame buffer base address
 	fb = SetGraphicsMode(800, 600);
+
+	//load kernel using block i/o
 	VOID *kernel_buffer = handleBlockIO();
-	//VOID *buffer = handleBlockIO();
-
-	/*
-
-Exit Boot Services
-
-*/
 
 	//Memory Map and ExitBootServices()
 	setExitBootServices();

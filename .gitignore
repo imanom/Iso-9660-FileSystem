@@ -3,6 +3,7 @@
 *.iso
 **.o
 *.a
+*.7z
 main
 
 *.vscode
@@ -17,6 +18,7 @@ main
 *boot.efi
 *boot.lib
 *.img
+*.gch
 
 **/boot/
 

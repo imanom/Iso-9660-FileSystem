@@ -33,12 +33,12 @@ int readBothEndian(VolInfo *volInfo, unsigned *value)
     if (rc != 8)
         return rc;
 
-    readFromCharArray(array, value);
+    convertBothEndian(array, value);
 
     return rc;
 }
 
-void readFromCharArray(unsigned char *array, unsigned *value)
+void convertBothEndian(unsigned char *array, unsigned *value)
 {
     *value = array[3];
     *value <<= 8;
